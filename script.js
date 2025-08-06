@@ -1,10 +1,15 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Загрузка картинок игрока
+const playerImgDefault = new Image();
+playerImgDefault.src = "ham_smile.png"; // Основная картинка
+const playerImgHappy = new Image();
+playerImgHappy.src = "ham_eat.png"; // При столкновении с ХА
+const playerImgSad = new Image();
+playerImgSad.src = "ham_lose.png"; // При столкновении с ХИ
 
-// Загрузка картинки игрока
-const playerImg = new Image();
-playerImg.src = "arsenchik.png"; // Замени на свой путь
+let currentPlayerImg = playerImgDefault; // Текущая картинка
 
 // Игрок
 const player = {
@@ -23,48 +28,14 @@ const badItems = ["ХИ"];
 let score = 0;
 let missed = 0;
 let gameOver = false;
+let lastCollisionTime = 0;
+const imageChangeDuration = 500; // Время показа картинки в мс (0.5 сек)
 
 // Создание объектов
 function spawnObject() {
-    const isGood = Math.random() > 0.3; // 70% - ХА, 30% - ХИ
-    const item = isGood ? goodItems[0] : badItems[0];
-
+    const isGood = Math.random() > 0.3;
     objects.push({
-        x: Math.random() * (canvas.width - 30),
-        y: -30,
-        width: 30,
-        height: 30,
-        speed: 2 + Math.random() * 3,
-        item: item,
-        isGood: isGood
-    });
-}
-
-// Управление (клавиши)
-document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft") player.x -= player.speed;
-    if (e.key === "ArrowRight") player.x += player.speed;
-    
-    // Новые границы с выходом за край
-    if (player.x < -player.width/2) player.x = -player.width/2;
-    if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
-});
-
-// Управление (касания)
-canvas.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    const touchX = e.touches[0].clientX - canvas.offsetLeft;
-    player.x = touchX - player.width / 2;
-
-   if (player.x < -player.width/2) player.x = -player.width/2;
-    if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
-});
-
-// Спавн объектов
-function spawnObject() {
-    const isGood = Math.random() > 0.1;
-    objects.push({
-        x: Math.random() * (canvas.width + 30) - 15, // Появляются чуть за границами
+        x: Math.random() * (canvas.width + 30) - 15,
         y: -30,
         width: 30,
         height: 30,
@@ -74,9 +45,24 @@ function spawnObject() {
     });
 }
 
+// Управление (клавиши и касания остаются без изменений)
+document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") player.x -= player.speed;
+    if (e.key === "ArrowRight") player.x += player.speed;
+    if (player.x < -player.width/2) player.x = -player.width/2;
+    if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
+});
+
+canvas.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    const touchX = e.touches[0].clientX - canvas.offsetLeft;
+    player.x = touchX - player.width / 2;
+    if (player.x < -player.width/2) player.x = -player.width/2;
+    if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
+});
+
 // Проверка столкновений
 function checkCollision(obj) {
-    // Уменьшаем зону столкновения на 30% со всех сторон
     const shrinkFactor = 0.3;
     const playerLeft = player.x + player.width * shrinkFactor;
     const playerRight = player.x + player.width * (1 - shrinkFactor);
@@ -96,31 +82,18 @@ function checkCollision(obj) {
     );
 }
 
-// И в функции spawnObject увеличим частоту появления объектов:
-function spawnObject() {
-    if (Math.random() < 0.7) { // Было 0.02, теперь чаще
-        const isGood = Math.random() > 0.3;
-        const item = isGood ? goodItems[0] : badItems[0];
-
-        objects.push({
-            x: Math.random() * (canvas.width - 30),
-            y: -30,
-            width: 30,
-            height: 30,
-            speed: 2 + Math.random() * 3,
-            item: item,
-            isGood: isGood
-        });
-    }
-}
-
 // Игровой цикл
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Рисуем игрока (картинку или эмодзи)
-    if (playerImg.complete) {
-        ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+    // Возвращаем стандартную картинку, если прошло достаточно времени
+    if (Date.now() - lastCollisionTime > imageChangeDuration) {
+        currentPlayerImg = playerImgDefault;
+    }
+
+    // Рисуем игрока (текущая картинка)
+    if (currentPlayerImg.complete) {
+        ctx.drawImage(currentPlayerImg, player.x, player.y, player.width, player.height);
     } else {
         ctx.fillStyle = "#FF5733";
         ctx.fillRect(player.x, player.y, player.width, player.height);
@@ -141,9 +114,12 @@ function gameLoop() {
         if (checkCollision(obj)) {
             if (obj.isGood) {
                 score++;
+                currentPlayerImg = playerImgHappy; // Меняем на happy.png
             } else {
                 gameOver = true;
+                currentPlayerImg = playerImgSad; // Меняем на sad.png
             }
+            lastCollisionTime = Date.now();
             objects.splice(i, 1);
         }
 
@@ -172,4 +148,11 @@ function gameLoop() {
 }
 
 // Запуск игры
-playerImg.onload = gameLoop; // Ждем загрузки картинки
+window.onload = function() {
+    // Ждем загрузки всех картинок
+    Promise.all([
+        new Promise(resolve => { playerImgDefault.onload = resolve; }),
+        new Promise(resolve => { playerImgHappy.onload = resolve; }),
+        new Promise(resolve => { playerImgSad.onload = resolve; })
+    ]).then(gameLoop);
+};

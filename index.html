@@ -1,22 +1,247 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <script defer src="script.js"></script>
-    <title>Document</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ХА-ХИ Игра</title>
     <style>
-        canvas { background: #f0f0f0; display: block; margin: 0 auto; }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
+            background: #f8f8f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        canvas {
+            background: #ffffff;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #555;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
-
 <body>
+    <div id="score-display">Очки: <span id="score">0</span> | Пропущено: <span id="missed">0</span>/8</div>
     <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreElement = document.getElementById("score");
+        const missedElement = document.getElementById("missed");
+
+        // Загрузка картинок игрока
+        const playerImgDefault = new Image();
+        playerImgDefault.src = "ham_smile.png";
+        const playerImgHappy = new Image();
+        playerImgHappy.src = "ham_eat.png";
+        const playerImgSad = new Image();
+        playerImgSad.src = "ham_win.png";
+
+        let currentPlayerImg = playerImgDefault;
+        let colorChangeActivated = false;
+
+        // Игрок
+        const player = {
+            x: canvas.width / 2 - 100,
+            y: canvas.height - 200,
+            width: 200,
+            height: 200,
+            speed: 10
+        };
+
+        // Объекты
+        const objects = [];
+        const goodItems = ["ХА"];
+        const badItems = ["ХИ"];
+
+        let score = 0;
+        let missed = 0;
+        let gameOver = false;
+        let lastCollisionTime = 0;
+        const imageChangeDuration = 500;
+
+        // Цвета (изначально серые)
+        let defaultColor = "#888";  // Серый по умолчанию
+        let goodColor = "#888";     // Изначально серый
+        let badColor = "#888";      // Изначально серый
+        let textColor = "#333";     // Темно-серый
+
+        // Создание объектов
+        function spawnObject() {
+            const isGood = Math.random() > 0.3;
+            objects.push({
+                x: Math.random() * (canvas.width - 30),
+                y: -30,
+                width: 30,
+                height: 30,
+                speed: 2 + Math.random() * 3,
+                item: isGood ? goodItems[0] : badItems[0],
+                isGood: isGood
+            });
+        }
+
+        // Управление
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") player.x -= player.speed;
+            if (e.key === "ArrowRight") player.x += player.speed;
+            if (player.x < -player.width/2) player.x = -player.width/2;
+            if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
+        });
+
+        canvas.addEventListener("touchmove", (e) => {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+            player.x = touchX - player.width / 2;
+            if (player.x < -player.width/2) player.x = -player.width/2;
+            if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
+        });
+
+        // Проверка столкновений
+        function checkCollision(obj) {
+            const shrinkFactor = 0.3;
+            const playerLeft = player.x + player.width * shrinkFactor;
+            const playerRight = player.x + player.width * (1 - shrinkFactor);
+            const playerTop = player.y + player.height * shrinkFactor;
+            const playerBottom = player.y + player.height * (1 - shrinkFactor);
+
+            const objLeft = obj.x + obj.width * shrinkFactor;
+            const objRight = obj.x + obj.width * (1 - shrinkFactor);
+            const objTop = obj.y + obj.height * shrinkFactor;
+            const objBottom = obj.y + obj.height * (1 - shrinkFactor);
+
+            return (
+                playerRight > objLeft &&
+                playerLeft < objRight &&
+                playerBottom > objTop &&
+                playerTop < objBottom
+            );
+        }
+
+        // Игровой цикл
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисуем игрока
+            if (currentPlayerImg.complete) {
+                ctx.drawImage(currentPlayerImg, player.x, player.y, player.width, player.height);
+            }
+
+            // Возвращаем стандартную картинку
+            if (Date.now() - lastCollisionTime > imageChangeDuration && !gameOver) {
+                currentPlayerImg = playerImgDefault;
+            }
+
+            // Создаем объекты
+            if (Math.random() < 0.02) spawnObject();
+
+            // Обновляем UI
+            scoreElement.textContent = score;
+            missedElement.textContent = missed;
+            
+            // После 5 очков активируем цвета
+            if (score >= 5 && !colorChangeActivated) {
+                goodColor = "#7CFC00"; // Приглушенный зеленый
+                badColor = " #FF0000";  // Приглушенный красный
+                colorChangeActivated = true;
+            }
+
+            // Двигаем и рисуем объекты
+            for (let i = objects.length - 1; i >= 0; i--) {
+                const obj = objects[i];
+                obj.y += obj.speed;
+
+                // Используем цвет в зависимости от активации
+                const currentColor = colorChangeActivated ? 
+                    (obj.isGood ? goodColor : badColor) : 
+                    defaultColor;
+
+                ctx.font = "30px Arial";
+                ctx.fillStyle = currentColor;
+                ctx.fillText(obj.item, obj.x, obj.y + 30);
+
+                // Столкновение
+                if (checkCollision(obj)) {
+                    if (obj.isGood) {
+                        score++;
+                        currentPlayerImg = playerImgHappy;
+                        lastCollisionTime = Date.now();
+                    } else {
+                        currentPlayerImg = playerImgSad;
+                        lastCollisionTime = Date.now();
+                        setTimeout(() => {
+                            gameOver = true;
+                        }, imageChangeDuration);
+                    }
+                    objects.splice(i, 1);
+                }
+
+                // Пропущенный объект
+                if (obj.y > canvas.height) {
+                    if (obj.isGood) missed++;
+                    objects.splice(i, 1);
+                }
+            }
+
+            // Конец игры
+            if (missed >= 8 || gameOver) {
+                if (gameOver) {
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "36px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Игра окончена", canvas.width / 2, canvas.height / 2 - 20);
+                    ctx.font = "20px Arial";
+                    ctx.fillText(`Счет: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+                }
+                return;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Запуск игры
+        function startGame() {
+            const images = [playerImgDefault, playerImgHappy, playerImgSad];
+            let loaded = 0;
+            
+            images.forEach(img => {
+                if (img.complete) {
+                    loaded++;
+                } else {
+                    img.onload = () => {
+                        loaded++;
+                        if (loaded === images.length) gameLoop();
+                    };
+                }
+            });
+            
+            if (loaded === images.length) gameLoop();
+        }
+
+        startGame();
+    </script>
 </body>
-
-
-
 </html>
