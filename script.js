@@ -1,6 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+
 // Загрузка картинки игрока
 const playerImg = new Image();
 playerImg.src = "arsenchik.png"; // Замени на свой путь
@@ -49,6 +50,16 @@ document.addEventListener("keydown", (e) => {
     if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
 });
 
+// Управление (касания)
+canvas.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    const touchX = e.touches[0].clientX - canvas.offsetLeft;
+    player.x = touchX - player.width / 2;
+
+    if (player.x < 0) player.x = 0;
+    if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+});
+
 // Спавн объектов
 function spawnObject() {
     const isGood = Math.random() > 0.3;
@@ -62,16 +73,6 @@ function spawnObject() {
         isGood: isGood
     });
 }
-
-// Управление (касания)
-canvas.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    const touchX = e.touches[0].clientX - canvas.offsetLeft;
-    player.x = touchX - player.width / 2;
-
-    if (player.x < 0) player.x = 0;
-    if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
-});
 
 // Проверка столкновений
 function checkCollision(obj) {
@@ -97,7 +98,7 @@ function checkCollision(obj) {
 
 // И в функции spawnObject увеличим частоту появления объектов:
 function spawnObject() {
-    if (Math.random() < 1) { // Было 0.02, теперь чаще
+    if (Math.random() < 0.7) { // Было 0.02, теперь чаще
         const isGood = Math.random() > 0.3;
         const item = isGood ? goodItems[0] : badItems[0];
 
