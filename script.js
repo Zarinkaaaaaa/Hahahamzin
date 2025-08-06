@@ -56,13 +56,13 @@ canvas.addEventListener("touchmove", (e) => {
     const touchX = e.touches[0].clientX - canvas.offsetLeft;
     player.x = touchX - player.width / 2;
 
-    if (player.x < 0) player.x = 0;
-    if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+   if (player.x < -player.width/2) player.x = -player.width/2;
+    if (player.x > canvas.width - player.width/2) player.x = canvas.width - player.width/2;
 });
 
 // Спавн объектов
 function spawnObject() {
-    const isGood = Math.random() > 0.3;
+    const isGood = Math.random() > 0.1;
     objects.push({
         x: Math.random() * (canvas.width + 30) - 15, // Появляются чуть за границами
         y: -30,
